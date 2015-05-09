@@ -10,7 +10,7 @@ setup(
     url='https://github.com/daeatel/skool',
     license='LICENSE.txt',
     description='Online school package',
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     install_requires=[
         "beautifulsoup4 == 4.3.2",
         "blinker == 1.3",
