@@ -1,6 +1,7 @@
 from datetime import datetime
 from skool.utils import makepath
 from skool.models import *
+import subprocess
 import pickle
 import json
 import sys
@@ -8,7 +9,27 @@ import re
 import os
 
 
-def parse_date(s):
+def get_rvp_categories():
+    ''' Start scrapy crawler which obtains tree of categories from http://odkazy.rvp.cz/'''
+    p = subprocess.Popen(['scrapy', 'crawl', 'cats'], cwd=os.path.join(os.path.dirname(__file__), './scrapy/cats'))
+    p.wait()
+
+
+def get_rvp_pages():
+    ''' Start scrapy crawler which obtains tree of categories from http://odkazy.rvp.cz/'''
+    p = subprocess.Popen(['scrapy', 'crawl', 'rvps'], cwd=os.path.join(os.path.dirname(__file__), './scrapy/pages'))
+    p.wait()
+
+
+def __parse_date(s):
+    '''
+    Convert date from format 21. 04. 2015 to datetime format
+
+    :param s: date string to parse
+    :type s: str
+    :returns: datetime representation of input string
+    :rtype: datetime
+    '''
     match = re.search(r'(\d+)\.\s(\d+)\.\s(\d+)', s)
     md = int(match.group(1))
     mm = int(match.group(2))
@@ -16,7 +37,15 @@ def parse_date(s):
     return datetime(my, mm, md, 12, 0)
 
 
-def sites_to_mongo(sites_path, langs_path):
+def __sites_to_mongo(sites_path, langs_path):
+    '''
+    Import data about RVP sites into MongoDB
+
+    :param sites_path: path to file with info about sites
+    :type sites_path: str
+    :param langs_path: path to file with info about languages
+    :type langs_path: str
+    '''
     json_obj = open(sites_path)
     data = json.load(json_obj)
     json_obj.close()
@@ -53,7 +82,7 @@ def sites_to_mongo(sites_path, langs_path):
 
             p = Site(title=page['name'], author=page['author'], url=page['url'], language=lang, show=page['show'])
 
-            p.published = parse_date(page['published'])
+            p.published = __parse_date(page['published'])
             p.image_url = page['image_urls'][0]
             p.rating_rvp = page.get('rating_rvp')
             p.rating_users = page.get('rating_users')
@@ -82,6 +111,7 @@ def sites_to_mongo(sites_path, langs_path):
 
 
 def import_sites():
+    ''' Import RVP data into MongoDB (old data are deleted)'''
     Keyword.objects.delete()
     Language.objects.delete()
     Category.objects.delete()
@@ -89,11 +119,12 @@ def import_sites():
     Page.objects.delete()
     sites_path = makepath('data/sites.json')
     langs_path = makepath('data/langs.json')
-    sites_to_mongo(sites_path, langs_path)
+    __sites_to_mongo(sites_path, langs_path)
     Site.update_all_recs()
 
 
-def create_btext_lookup():
+def __create_btext_lookup():
+    ''' Create file for looking up page's parent site '''
     print "Creating lookup for bodytexts"
     pages = [x.url.strip() for x in Site.objects]
 
@@ -115,7 +146,8 @@ def create_btext_lookup():
         pickle.dump(lookup, fh)
 
 
-def load_btexts():
+def __load_btexts():
+    ''' Load gathered bodytexts and import them to MongoDB with appropriate site reference'''
     print "Inserting bodytexts"
     with open(makepath('data/lookup.pkl'), 'r') as fh:
         lookup = pickle.load(fh)
@@ -147,11 +179,13 @@ def load_btexts():
 
 
 def import_pages():
-    create_btext_lookup()
-    load_btexts()
+    ''' Import data about individual pages to MongoDB'''
+    __create_btext_lookup()
+    __load_btexts()
 
 
 def clear_labels():
+    ''' Set all labels of all pages to False or empty'''
     for site in Site.objects:
         site.children_labeled = []
         site.save()

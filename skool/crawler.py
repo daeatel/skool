@@ -25,13 +25,15 @@ DB_PATH = '/tmp/dbtest'
 now = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
 
 
-def open_env():
+def __open_env():
+    ''' Open LMDB instance'''
     return lmdb.open(DB_PATH, max_dbs=1)
 
 
 def rebuild_url_lookup():
+    ''' Rebuld URL lookup data'''
     print "Rebuilding URL"
-    env = open_env()
+    env = __open_env()
     urls = env.open_db('urls')
     with env.begin(db=urls, write=True) as txn:
         cursor = txn.cursor()
@@ -46,7 +48,7 @@ def rebuild_url_lookup():
     env.close()
 
 
-env = open_env()
+env = __open_env()
 
 rebuild = False
 with env.begin(write=True) as txn:
@@ -71,7 +73,13 @@ env.close()
 
 
 def add_to_lookup(url):
-    env = open_env()
+    '''
+    Add URL to URL lookup
+
+    :param url: URL to add
+    :type url: str
+    '''
+    env = __open_env()
     urls = env.open_db('urls')
     with env.begin(db=urls, write=True) as txn:
         txn.put(url.encode('utf-8'), '1')
@@ -79,6 +87,16 @@ def add_to_lookup(url):
 
 
 def addtodb(page, lookupurl, classes):
+    '''
+    Add page to MongoDB
+
+    :param page: info about page
+    :type page: dict
+    :param lookupurl: URL of parent site
+    :type lookupurl: str
+    :param classes: result of classification for given page
+    :type classes: array of ints
+    '''
     parent = Site.objects(url=lookupurl).first()
     nov = Page(url=page['url'], btext=page['btext'])
     if parent:
@@ -95,6 +113,14 @@ client = xmlrpclib.ServerProxy('http://localhost:8001', allow_none=True)
 
 
 def crawl_page(url, parenturl=None):
+    '''
+    Crawl single page and add it to db
+
+    :param url: URL of webpage to be crawled
+    :type url: str
+    :param parenturl: URL of parent website, obtained automatically if ommited
+    :type parenturl: str
+    '''
     if not newurl(url):
         return
     # if not parenturl:
@@ -119,12 +145,16 @@ def crawl_page(url, parenturl=None):
 
 
 class SPage(Item):
+
+    ''' Class containing basic information about page'''
     url = Field()
     btext = Field()
     referer = Field()
 
 
 class FollowAllSpider(Spider):
+
+    ''' Scrapy spider used to crawl entire site'''
 
     name = 'followall'
 
@@ -150,12 +180,18 @@ class FollowAllSpider(Spider):
         return r
 
 
-def stop_reactor():
+def __stop_reactor():
     reactor.stop()
 
 
-def crawl_address(url):
-    dispatcher.connect(stop_reactor, signal=signals.spider_closed)
+def __crawl_address(url):
+    '''
+    Crawl entire site
+
+    :param url: URL of website
+    :type url: str
+    '''
+    dispatcher.connect(__stop_reactor, signal=signals.spider_closed)
     spider = FollowAllSpider(domain=url)
     settings = get_project_settings()
     crawler = Crawler(settings)
@@ -170,7 +206,15 @@ def crawl_address(url):
 
 
 def newurl(url):
-    env = open_env()
+    '''
+    Is URL new? (ie. not in lookup)
+
+    :param url: URL to check
+    :type url: str
+    :returns: is URL new?
+    :rtype: bool
+    '''
+    env = __open_env()
     urls = env.open_db('urls')
     with env.begin(db=urls, write=True) as txn:
         log.msg(url)
@@ -187,6 +231,12 @@ def newurl(url):
 
 
 def crawl(url):
+    '''
+    Crawl entire site
+
+    :param url: URL of website
+    :type url: str
+    '''
     if not url.startswith('http://') and not url.startswith('https://'):
         url = 'http://%s/' % url
     import threading
@@ -201,6 +251,6 @@ def crawl(url):
     p.published = datetime.datetime.today()
     p.save()
 
-    thr = threading.Thread(target=crawl_address, args=[url], kwargs={})
+    thr = threading.Thread(target=__crawl_address, args=[url], kwargs={})
     thr.start()
     return

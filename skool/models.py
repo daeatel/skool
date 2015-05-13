@@ -134,7 +134,7 @@ class Page(Document):
     classified = BooleanField(required=True, default=False)
     deleted = BooleanField(required=True, default=False)
     labeled = BooleanField(required=True, default=False)
-    innocent = BooleanField(default=False)
+    educational = BooleanField(required=True, default=False)
 
     @property
     def labels_teacher(self):

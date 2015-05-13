@@ -5,6 +5,26 @@ import re
 
 
 def search(query, field, start=0, size=10, recommend=False, fuzzy=False, highlight=None):
+    '''
+    Perform Elasticsearch index lookup for documents with given parameters
+
+    :param query: text to be searched for
+    :type query: str
+    :param field: field to be searched
+    :type field: str
+    :param start: offset for results presentation
+    :type start: int
+    :param size: how many documents to present
+    :type size: int
+    :param recommend: fill in document's recommendations
+    :type recommend: bool
+    :param fuzzy: perform fuzzy search
+    :type fuzzy: bool
+    :param highlight: highlight query in result document
+    :type highlight: bool
+    :returns: number of results and results
+    :rtype: tuple (nrOfResults, results)
+    '''
     body = {
         "from": start,
         'query': {}

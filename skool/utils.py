@@ -6,10 +6,32 @@ import os
 
 
 def makepath(append, basepath=BASEPATH):
-    return os.path.abspath(os.path.join(basepath, append))
+    '''
+    Create absolute path to given folder according to settings. Create the path if neccessary
+
+    :param append: path to be appended to basepath from settings
+    :type append: str
+    :param basepath: basic path to folder with data
+    :type basepath: str
+    :returns: absolute path
+    :rtype: str
+    '''
+    path = os.path.abspath(os.path.join(basepath, append))
+    dirname = os.path.dirname(path)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    return path
 
 
 def dump_db(path=None, remove=True):
+    '''
+    Export the database data to given folder
+
+    :param path: path where data will be stored, default from settings
+    :type path: str
+    :param remove: previous exported data should be deleted, default True
+    :type path: bool
+    '''
     if not path:
         path = makepath('dump')
     print "Dumping database to", path
@@ -26,6 +48,14 @@ def dump_db(path=None, remove=True):
 
 
 def restore_db(path=None, remove=False):
+    '''
+    Import data to database from given folder
+
+    :param path: path from which data should be loaded, default from settings
+    :type path: str
+    :param remove: drop database before import, default False
+    :type remove: bool
+    '''
     if not path:
         path = makepath('dump')
     print "Restoring database from", path
@@ -42,13 +72,13 @@ def restore_db(path=None, remove=False):
     call(args)
 
 
-# = init_search_index()
 def init_mongodb_river():
+    ''' Creates connection (index) between Elasticsearch and MongoDB'''
     body = '''{
         "type": "mongodb",
         "mongodb": {
             "servers": [
-                {"host": "%s", "port": %d}
+                {"host": "%s", "port": % d}
             ],
             "db": "%s",
             "collection": "%s",
