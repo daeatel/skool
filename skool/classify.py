@@ -81,8 +81,8 @@ def train_model():
     print "Saving it"
     joblib.dump(cls, os.path.join(makepath('model'), DEFAULT_FILENAMES['Classifier'] + '.pkl'))
     print "Done"
-    test = cls.predict(ti)
-    print classification_report(train_label, test)
+    # test = cls.predict(ti)
+    # print classification_report(train_label, test)
 
 
 def get_edu_data():

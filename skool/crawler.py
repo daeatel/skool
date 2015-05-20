@@ -201,7 +201,7 @@ def __crawl_address(url):
     crawler.start()
     log.start()
     log.msg('Running reactor...')
-    reactor.run()
+    reactor.run(installSignalHandlers=False)
     log.msg('Reactor stopped.')
 
 
