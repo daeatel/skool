@@ -5,7 +5,7 @@ INDEX_NAME = 'pagesbtext'
 # type of the Elasticsearch index
 INDEX_TYPE = 'page'
 # host address of MongoDB
-MONGODB_HOST = "127.0.0.1"
+MONGODB_HOST = "127.0.1.1"
 # port of MongoDB
 MONGODB_PORT = 27017
 # name of MongoDB database

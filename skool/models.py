@@ -3,12 +3,13 @@
 import blinker  # import is not needed, but it has to be installed in order to use signals
 from skool.difficulty import mistrik
 from skool.utils import makepath
+from skool.settings import *
 from mongoengine import *
 from mongoengine import signals
 import distance
 import operator
 import sys
-connect('skool')
+connect('skool', host=MONGODB_HOST, port=MONGODB_PORT, username=MONGODB_USER, password=MONGODB_PASS)
 
 
 def get_stopwords():
@@ -47,12 +48,6 @@ class Label(Document):
             else:
                 l.valid = False
             l.save()
-        # 333, min 1 = 232
-        # 333, min 25 = 162
-        # 333, min 100 = 94
-        # 150 = 71
-        # 200 = 56
-        # 250 = 47
         print "Done", len(res), "labels are OK"
 
 
@@ -178,7 +173,7 @@ class Page(Document):
 
     @classmethod
     def predict_labels(cls, document):
-        if document.cleannostops and not document.label_model:
+        if document.cleannostops:
             from skool.classify import classify
             res = classify(document.cleannostops)
             add = []
@@ -216,8 +211,16 @@ class Page(Document):
     @classmethod
     def pre_save_seq(cls, sender, document):
         cls.clean_btexts(document)
-        cls.predict_labels(document)
+        # cls.predict_labels(document)
         cls.compute_recs(document)
+
+    @classmethod
+    def predict_all_labels(cls):
+        for page in [x for x in Page.objects() if x.cze]:
+            Page.predict_labels(page)
+            page.save()
+            sys.stdout.write('.')
+            sys.stdout.flush()
 
 signals.pre_save.connect(Page.compute_diff, sender=Page)
 signals.pre_save.connect(Page.pre_save_seq, sender=Page)
@@ -275,9 +278,12 @@ class Site(Document):
     language = ReferenceField(Language)
 
     @classmethod
-    def update_site_recs(cls, document):
+    def update_site_recs(cls, document, sites=None):
         res = {}
-        for site in Site.objects():
+        if not sites:
+            sites = Site.objects()
+            sites.timeout(False)
+        for site in sites:
             if site != document:
                 kwa, kwb = document.keywords, site.keywords
                 ca = set(kwa)
@@ -296,11 +302,16 @@ class Site(Document):
 
     @classmethod
     def update_all_recs(cls):
-        print "Rebuilding all Site's recommendations"
-        for site in Site.objects():
-            Site.update_site_recs(site)
+        sites = Site.objects()
+        sites.timeout(False)    # disable cursor timeout
+        print "Rebuilding", len(sites), "Site's recommendations"
+        cnt = 0
+        for site in sites:
+            Site.update_site_recs(site, sites)
+            cnt += 1
             sys.stdout.write('.')
             sys.stdout.flush()
+        print cnt, "sites processed"
 
 
 if __name__ == '__main__':

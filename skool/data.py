@@ -114,6 +114,7 @@ def import_sites():
     ''' Import RVP data into MongoDB (old data are deleted)'''
     Keyword.objects.delete()
     Language.objects.delete()
+    Label.objects.delete()
     Category.objects.delete()
     Site.objects.delete()
     Page.objects.delete()
@@ -182,6 +183,7 @@ def import_pages():
     ''' Import data about individual pages to MongoDB'''
     __create_btext_lookup()
     __load_btexts()
+    Label.filter_labels()
 
 
 def clear_labels():

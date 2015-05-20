@@ -37,7 +37,7 @@ def dump_db(path=None, remove=True):
     print "Dumping database to", path
     if remove and os.path.isdir(path):
         shutil.rmtree(path)
-    args = ["mongodump", "--host", MONGODB_HOST + ":" + str(MONGODB_PORT), "--db", MONGODB_DB, "--out", path]
+    args = ["mongodump", "--verbose", "--host", MONGODB_HOST + ":" + str(MONGODB_PORT), "--db", MONGODB_DB, "--out", path]
     if MONGODB_USER:
         args.append("--username")
         args.append(MONGODB_USER)
@@ -47,7 +47,7 @@ def dump_db(path=None, remove=True):
     call(args)
 
 
-def restore_db(path=None, remove=False):
+def restore_db(path=None, remove=True):
     '''
     Import data to database from given folder
 
@@ -59,7 +59,7 @@ def restore_db(path=None, remove=False):
     if not path:
         path = makepath('dump')
     print "Restoring database from", path
-    args = ["mongorestore", "--host", MONGODB_HOST + ":" + str(MONGODB_PORT)]
+    args = ["mongorestore", "--verbose", "--host", MONGODB_HOST + ":" + str(MONGODB_PORT)]
     if MONGODB_USER:
         args.append("--username")
         args.append(MONGODB_USER)
@@ -74,6 +74,12 @@ def restore_db(path=None, remove=False):
 
 def init_mongodb_river():
     ''' Creates connection (index) between Elasticsearch and MongoDB'''
+    r = requests.delete('http://localhost:9200/_river/skool')
+    print r.status_code
+    print r.content
+    r = requests.delete('http://localhost:9200/%s' % INDEX_NAME)
+    print r.status_code
+    print r.content
     body = '''{
         "type": "mongodb",
         "mongodb": {

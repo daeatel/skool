@@ -10,6 +10,7 @@ from sklearn.externals import joblib
 import xmlrpclib
 import pickle
 import os
+from sklearn.metrics import *
 
 client = xmlrpclib.ServerProxy(CSTRING, allow_none=True)
 
@@ -80,6 +81,8 @@ def train_model():
     print "Saving it"
     joblib.dump(cls, os.path.join(makepath('model'), DEFAULT_FILENAMES['Classifier'] + '.pkl'))
     print "Done"
+    test = cls.predict(ti)
+    print classification_report(train_label, test)
 
 
 def get_edu_data():
