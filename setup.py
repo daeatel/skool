@@ -1,4 +1,11 @@
-from distutils.core import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
+import pip
+
+# numpy is necessary for scikit-learn
+pip.main(['install', 'numpy'])
 
 setup(
     name='skool',
@@ -21,7 +28,7 @@ setup(
         "lmdb == 0.84",
         "mongoengine == 0.8.7",
         "pytz == 2015.2",
-        "scikit-learn == 0.15.2",
+        "scikit-learn",
         "sumy == 0.3.0",
         "textblob == 0.9.0",
     ],
