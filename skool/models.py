@@ -211,7 +211,8 @@ class Page(Document):
     @classmethod
     def pre_save_seq(cls, sender, document):
         cls.clean_btexts(document)
-        # cls.predict_labels(document)
+        if not document.label_model:
+            cls.predict_labels(document)
         cls.compute_recs(document)
 
     @classmethod

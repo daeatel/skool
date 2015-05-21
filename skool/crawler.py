@@ -1,14 +1,5 @@
 #!/usr/bin/python
 # encoding=utf-8
-from scrapy.contrib.linkextractors import LinkExtractor
-from scrapy.utils.project import get_project_settings
-from scrapy.xlib.pydispatch import dispatcher
-from scrapy.http import Request, HtmlResponse
-from scrapy.item import Item, Field
-from scrapy.crawler import Crawler
-from scrapy.spider import Spider
-from scrapy import log, signals
-from twisted.internet import reactor
 import datetime
 import urlparse
 import re
@@ -18,6 +9,8 @@ import iso8601
 import justext
 import xmlrpclib
 import urllib2
+import threading
+from BeautifulSoup import BeautifulSoup
 
 from models import Page, Site, Label
 
@@ -41,8 +34,6 @@ def rebuild_url_lookup():
             txn.delete(k)
         for item in Page.objects():
             t = item.url.encode('utf-8')
-            if 'gvh' in t:
-                print t
             txn.put(t, '1')
     print "Done"
     env.close()
@@ -127,82 +118,72 @@ def crawl_page(url, parenturl=None):
     #     parsed = urlparse.urlparse(url)
     #     parenturl = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed)
     res = []
-    response = urllib2.urlopen(url)
-    body = response.read()
-    paragraphs = justext.justext(body, justext.get_stoplist("Czech"))
-    for para in paragraphs:
-        if not para.is_boilerplate:
-            res.append(para.text)
-    btext = ' '.join(res)
-    cls = client.classify(btext)
-    # page = {'url': url, 'btext': btext}
-    page = SPage(url=url, btext=btext)
-    # log.msg(page['referer'], loglevel=log.CRITICAL)
-    log.msg(page['url'], loglevel=log.CRITICAL)
-    log.msg(cls, loglevel=log.CRITICAL)
-    addtodb(page, parenturl, cls)
-    return page
+    urls = []
+    try:
+        response = urllib2.urlopen(url)
+    except Exception:
+        return urls
+    if response.info().maintype == 'text':
+        print url
+        body = response.read()
+        response.close()
+        soup = BeautifulSoup(body)
+
+        for tag in soup.findAll('a', href=True):
+            tag['href'] = urlparse.urljoin(url, tag['href'])
+            urls.append(tag['href'])
+
+        if not body:
+            return urls
+        paragraphs = justext.justext(body, justext.get_stoplist("Czech"))
+        for para in paragraphs:
+            if not para.is_boilerplate:
+                res.append(para.text)
+        btext = ' '.join(res)
+        isedu = client.classify_edu(btext)[0]
+        page = {'url': url, 'btext': btext}
+        print isedu
+        if isedu == 2:  # is educational
+            cls = client.classify(btext)
+            addtodb(page, parenturl, cls)
+    return urls
 
 
-class SPage(Item):
-
-    ''' Class containing basic information about page'''
-    url = Field()
-    btext = Field()
-    referer = Field()
-
-
-class FollowAllSpider(Spider):
-
-    ''' Scrapy spider used to crawl entire site'''
-
-    name = 'followall'
-
-    def __init__(self, **kw):
-        super(FollowAllSpider, self).__init__(**kw)
-        url = kw.get('url') or kw.get('domain') or 'http://scrapinghub.com/'
-        if not url.startswith('http://') and not url.startswith('https://'):
-            url = 'http://%s/' % url
-        self.url = url
-        self.allowed_domains = [re.sub(r'^www\.', '', urlparse.urlparse(url).hostname)]
-        self.link_extractor = LinkExtractor()
-        self.cookies_seen = set()
-
-    def start_requests(self):
-        return [Request(self.url, callback=self.parse, dont_filter=True)]
-
-    def parse(self, response):
-        page = crawl_page(response.url, self.url)
-        r = [page]
-        if isinstance(response, HtmlResponse):
-            links = self.link_extractor.extract_links(response)
-            r.extend(Request(x.url, callback=self.parse) for x in links)
-        return r
-
-
-def __stop_reactor():
-    reactor.stop()
-
-
-def __crawl_address(url):
+def __crawl_address(site):
     '''
     Crawl entire site
 
     :param url: URL of website
     :type url: str
     '''
-    dispatcher.connect(__stop_reactor, signal=signals.spider_closed)
-    spider = FollowAllSpider(domain=url)
-    settings = get_project_settings()
-    crawler = Crawler(settings)
-    crawler.signals.connect(reactor.stop, signal=signals.spider_closed)
-    crawler.configure()
-    crawler.crawl(spider)
-    crawler.start()
-    log.start()
-    log.msg('Running reactor...')
-    reactor.run(installSignalHandlers=False)
-    log.msg('Reactor stopped.')
+    print site
+    urls_queue = [site]
+    urls_found = []
+    urls_done = []
+    domain = ''
+
+    mre = re.match('^https?://[^/]*', site, re.IGNORECASE)
+    if mre:
+        domain = mre.group(0)
+
+    while len(urls_queue) > 0:
+
+        url = urls_queue.pop()
+        urls_done.append(url)
+
+        found = crawl_page(url)
+
+        for uf in found:
+            if not uf.startswith(domain):
+                continue
+
+            if uf not in urls_found:
+                urls_found.append(uf)
+
+            if uf not in urls_queue and uf not in urls_done:
+                urls_queue.append(uf)
+
+        print "Done %d; Queued %d; Found %d" % (len(urls_done), len(urls_queue), len(urls_found))
 
 
 def newurl(url):
@@ -217,16 +198,14 @@ def newurl(url):
     env = __open_env()
     urls = env.open_db('urls')
     with env.begin(db=urls, write=True) as txn:
-        log.msg(url)
         t = url.encode('utf-8')
         tres = txn.get(t)
-        print url
-        print tres
         if tres:
             res = False
         else:
             res = True
     env.close()
+    print res
     return res
 
 
@@ -239,7 +218,6 @@ def crawl(url):
     '''
     if not url.startswith('http://') and not url.startswith('https://'):
         url = 'http://%s/' % url
-    import threading
     if newurl(url):
         print "New URL"
     else:

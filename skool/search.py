@@ -4,7 +4,7 @@ from settings import *
 import re
 
 
-def search(query, field, start=0, size=10, recommend=False, fuzzy=False, highlight=None):
+def search(query, field, start=0, size=100, recommend=False, fuzzy=False, highlight=None):
     '''
     Perform Elasticsearch index lookup for documents with given parameters
 
@@ -51,9 +51,10 @@ def search(query, field, start=0, size=10, recommend=False, fuzzy=False, highlig
     pres = []
     for r in res['hits']['hits']:
         hit = Page.objects(id=r['_source']['_id']).first()
-        if highlight and len(highlight) is 2:
-            hit.btext = '<br><br>'.join(r['highlight']['btext'])
-        pres.append(hit)
+        if hit:
+            if highlight and len(highlight) is 2:
+                hit.btext = '<br><br>'.join(r['highlight']['btext'])
+            pres.append(hit)
 
     fin = []
     for page in pres:
@@ -69,3 +70,4 @@ def search(query, field, start=0, size=10, recommend=False, fuzzy=False, highlig
                     tmp.append(x)
         fin.append([page, tmp])
     return (res['hits']['total'], fin)
+    # return (len(fin), fin)
