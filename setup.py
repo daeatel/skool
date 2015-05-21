@@ -4,8 +4,9 @@ except ImportError:
     from distutils.core import setup
 import pip
 
-# numpy is necessary for scikit-learn
+# numpy and scipy are necessary for scikit-learn
 pip.main(['install', 'numpy'])
+pip.main(['install', 'scipy'])
 
 setup(
     name='skool',
@@ -31,7 +32,6 @@ setup(
         "pytz == 2015.2",
         "requests == 2.6.0",
         "scikit-learn == 0.15.2",
-        "scipy == 0.15.1",
         "sumy == 0.3.0",
         "textblob == 0.9.0",
     ],
